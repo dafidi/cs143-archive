@@ -142,8 +142,13 @@
     %type <formals> formal_list
     %type <expression> let_expression
     %type <expression> let_init_list
+    %type <expression> case_expression
+    %type <case_> case_instance
+    %type <cases> case_instance_list
     
     /* Precedence declarations go here. */
+    %left '*' '/'
+    %left '+' '-'
     
     
     %%
@@ -214,23 +219,36 @@
 
 
     let_expression : LET OBJECTID ':' TYPEID IN expression
-    { $$ = let($2, $4, no_expr(), no_expr()); }
+    { $$ = let($2, $4, no_expr(), $6); }
     | LET OBJECTID ':' TYPEID ASSIGN expression IN expression
     { $$ = let($2, $4, $6, $8); }
-    | LET OBJECTID ':' TYPEID ',' let_init_list IN expression
-    { $$ = let($2, $4, no_expr(), $8); }
-    | LET OBJECTID ':' TYPEID ASSIGN expression ',' let_init_list IN expression
-    { $$ = let($2, $4, $6, $10); }
+    | LET OBJECTID ':' TYPEID ',' let_init_list
+    { $$ = let($2, $4, no_expr(), $6); }
+    | LET OBJECTID ':' TYPEID ASSIGN expression ',' let_init_list
+    { $$ = let($2, $4, $6, $8); }
     ;
 
-    let_init_list : OBJECTID ':' TYPEID
-    { $$ = let($1, $3, no_expr(), no_expr()); }
+    let_init_list : OBJECTID ':' TYPEID IN expression
+    { $$ = let($1, $3, no_expr(), $5); }
     | OBJECTID ':' TYPEID ',' let_init_list
-    { $$ = let($1, $3, no_expr(), no_expr()); }
-    | OBJECTID ':' TYPEID ASSIGN expression
-    { $$ = let($1, $3, $5, no_expr()); }
+    { $$ = let($1, $3, no_expr(), $5); }
+    | OBJECTID ':' TYPEID ASSIGN expression IN expression
+    { $$ = let($1, $3, $5, $7); }
     | OBJECTID ':' TYPEID ASSIGN expression ',' let_init_list
-    { $$ = let($1, $3, $5, no_expr()); }
+    { $$ = let($1, $3, $5, $7); }
+    ;
+
+    case_expression : CASE expression OF case_instance_list ESAC
+    { $$ = typcase($2, $4); }
+    ;
+
+    case_instance_list : case_instance ';'
+    { $$ = single_Cases($1); }
+    | case_instance ';' case_instance_list
+    { $$ = append_Cases(single_Cases($1), $3); }
+
+    case_instance : OBJECTID ':' TYPEID DARROW expression
+    { $$ = branch($1, $3, $5); }
     ;
 
     expression : '(' expression ')'
@@ -244,6 +262,8 @@
     | expression '+' expression
     { $$ = plus($1, $3); }
     | let_expression
+    { $$ = $1; }
+    | case_expression
     { $$ = $1; }
     | '{' expression_list '}'
     { $$ = block($2); }
@@ -263,6 +283,32 @@
     { $$ = dispatch(object(idtable.add_string("self")), $1, nil_Expressions()); }
     | OBJECTID '(' expression_list_as_args ')'
     { $$ = dispatch(object(idtable.add_string("self")), $1, $3); }
+    | IF expression THEN expression ELSE expression FI
+    { $$ = cond($2, $4, $6); }
+    | WHILE expression LOOP expression POOL
+    { $$ = loop($2, $4);}
+    | NEW TYPEID
+    { $$ = new_($2); }
+    | ISVOID expression
+    { $$ = isvoid($2); }
+    | expression '+' expression
+    { $$ = plus($1, $3);}
+    |expression '-' expression
+    { $$ = sub($1, $3); }
+    | expression '*' expression
+    { $$ = mul($1, $3);  }
+    | expression '/' expression
+    { $$ = divide($1, $3); }
+    | '~' expression
+    { $$ = neg($2); }
+    | expression '<' expression
+    { $$ = lt($1, $3);}
+    | expression LE expression
+    { $$ = leq($1, $3); }
+    | expression '=' expression
+    { $$ = eq($1, $3); }
+    | NOT expression
+    { $$ = neg($2); }
     ;
 
 
