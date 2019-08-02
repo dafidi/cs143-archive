@@ -1,2 +1,3 @@
 *.o
 grading/*
+check_test.sh

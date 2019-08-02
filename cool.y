@@ -136,21 +136,26 @@
     %type <feature> feature
     %type <features> feature_list
     %type <expression> expression
+    %type <expression> non_eq_expression
+    %type <expression> let_expression
+    %type <expression> let_init_list
+    %type <expression> case_expression
     %type <expressions> expression_list
     %type <expressions> expression_list_as_args
     %type <formal> formal
     %type <formals> formal_list
-    %type <expression> let_expression
-    %type <expression> let_init_list
-    %type <expression> case_expression
     %type <case_> case_instance
     %type <cases> case_instance_list
     
     /* Precedence declarations go here. */
-    %left '*' '/'
+    %right ASSIGN
+    %right NOT
+    %nonassoc LE '<' '='
     %left '+' '-'
-    
-    
+    %left '*' '/'
+    %right ISVOID
+    %right '~'
+   
     %%
     /* 
     Save the root of the abstract syntax tree in a global variable.
@@ -251,7 +256,7 @@
     { $$ = branch($1, $3, $5); }
     ;
 
-    expression : '(' expression ')'
+    non_eq_expression : '(' expression ')'
     { $$ = $2; }
     | INT_CONST
     { $$ = int_const($1); } 
@@ -259,8 +264,6 @@
     { $$ = bool_const($1); }
     | STR_CONST
     { $$ = string_const($1); } 
-    | expression '+' expression
-    { $$ = plus($1, $3); }
     | let_expression
     { $$ = $1; }
     | case_expression
@@ -293,7 +296,7 @@
     { $$ = isvoid($2); }
     | expression '+' expression
     { $$ = plus($1, $3);}
-    |expression '-' expression
+    | expression '-' expression
     { $$ = sub($1, $3); }
     | expression '*' expression
     { $$ = mul($1, $3);  }
@@ -305,16 +308,79 @@
     { $$ = lt($1, $3);}
     | expression LE expression
     { $$ = leq($1, $3); }
-    | expression '=' expression
+    | NOT expression
+    { $$ = comp($2); }
+    ;
+
+    expression : non_eq_expression
+    { $$ = $1; }
+    | non_eq_expression '=' non_eq_expression
+    { $$ = eq($1, $3); }
+    ;
+
+    /*
+    expression : '(' expression ')'
+    { $$ = $2; }
+    | INT_CONST
+    { $$ = int_const($1); } 
+    | BOOL_CONST
+    { $$ = bool_const($1); }
+    | STR_CONST
+    { $$ = string_const($1); } 
+    | let_expression
+    { $$ = $1; }
+    | case_expression
+    { $$ = $1; }
+    | '{' expression_list '}'
+    { $$ = block($2); }
+    | OBJECTID ASSIGN expression
+    { $$ = assign($1, $3); }
+    | expression '.' OBJECTID '(' ')'
+    { $$ = dispatch($1, $3, nil_Expressions()); }
+    | expression '.' OBJECTID '(' expression_list_as_args ')'
+    { $$ = dispatch($1, $3, $5); }
+    | expression '@' TYPEID '.' OBJECTID '(' ')'
+    { $$ = static_dispatch($1, $3, $5, nil_Expressions()); }
+    | expression '@' TYPEID '.' OBJECTID '(' expression_list_as_args ')'
+    { $$ = static_dispatch($1, $3, $5, $7); }
+    | OBJECTID '(' ')'
+    { $$ = dispatch(object(idtable.add_string("self")), $1, nil_Expressions()); }
+    | OBJECTID '(' expression_list_as_args ')'
+    { $$ = dispatch(object(idtable.add_string("self")), $1, $3); }
+    | IF expression THEN expression ELSE expression FI
+    { $$ = cond($2, $4, $6); }
+    | WHILE expression LOOP expression POOL
+    { $$ = loop($2, $4);}
+    | NEW TYPEID
+    { $$ = new_($2); }
+    | ISVOID expression
+    { $$ = isvoid($2); }
+    | expression '+' expression
+    { $$ = plus($1, $3);}
+    | expression '-' expression
+    { $$ = sub($1, $3); }
+    | expression '*' expression
+    { $$ = mul($1, $3);  }
+    | expression '/' expression
+    { $$ = divide($1, $3); }
+    | '~' expression
+    { $$ = neg($2); }
+    | expression '<' expression
+    { $$ = lt($1, $3);}
+    | expression LE expression
+    { $$ = leq($1, $3); }
+    | OBJECTID
+    { $$ = object($1); }
+    | non_eq_expression '=' non_eq_expression
     { $$ = eq($1, $3); }
     | NOT expression
     { $$ = neg($2); }
     ;
-
+    */
 
     /* end of grammar */
     %%
-    
+
     /* This function is called automatically when Bison detects a parse error. */
     void yyerror(char *s)
     {
@@ -328,5 +394,3 @@
       
       if(omerrs>50) {fprintf(stdout, "More than 50 errors\n"); exit(1);}
     }
-    
-    
