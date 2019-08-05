@@ -10,7 +10,7 @@
   #include "utilities.h"
   
   extern char *curr_filename;
-  //#define IN_DEBUG
+  #define IN_DEBUG
   #ifdef IN_DEBUG
   #define MYDEBUG(x) x
   #else
@@ -140,6 +140,7 @@
     %type <feature> feature
     %type <features> feature_list
     %type <expression> expression
+    %type <expression> let_expression
     %type <expression> let_init_list
     %type <expression> case_expression
 		%type <expressions> block_expression
@@ -225,7 +226,7 @@
     { $$ = single_Expressions($1); }
     | expression ';' expression_list
     { $$ = append_Expressions(single_Expressions($1), $3); }
-    | error ';' expression_list
+    | error
     { MYDEBUG(printf("expression-list-error-1 caught som'n\n");) }
     ;
 
@@ -237,6 +238,16 @@
     //{ MYDEBUG(printf("expression-list-as-args-error-1 caught som'n\n");) }
     ;
 
+    let_expression : LET OBJECTID ':' TYPEID IN expression
+    { $$ = let($2, $4, no_expr(), $6); }
+    | LET OBJECTID ':' TYPEID ASSIGN expression IN expression
+    { $$ = let($2, $4, $6, $8); }
+    | LET OBJECTID ':' TYPEID ',' let_init_list
+    { $$ = let($2, $4, no_expr(), $6); }
+    | LET OBJECTID ':' TYPEID ASSIGN expression ',' let_init_list
+    { $$ = let($2, $4, $6, $8); }
+    ;
+
     let_init_list : OBJECTID ':' TYPEID IN expression
     { $$ = let($1, $3, no_expr(), $5); }
     | OBJECTID ':' TYPEID ',' let_init_list
@@ -245,7 +256,7 @@
     { $$ = let($1, $3, $5, $7); }
     | OBJECTID ':' TYPEID ASSIGN expression ',' let_init_list
     { $$ = let($1, $3, $5, $7); }
-    | error let_init_list
+    | error
     { MYDEBUG(printf("let-init-list-error-1 caught som'n\n");) }
     ;
 
@@ -264,6 +275,7 @@
     { MYDEBUG(printf("case-instance-error-1 caught som'n\n");) }
     ;
 
+
     expression : '(' expression ')'
     { $$ = $2; }
     | INT_CONST
@@ -272,8 +284,8 @@
     { $$ = bool_const($1); }
     | STR_CONST
     { $$ = string_const($1); } 
-    | LET let_init_list
-    { $$ = $2; }
+    | let_expression
+    { $$ = $1; }
     | OBJECTID ASSIGN expression
     { $$ = assign($1, $3); }
     | expression '.' OBJECTID '(' ')'
